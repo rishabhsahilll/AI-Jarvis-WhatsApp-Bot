@@ -5,7 +5,7 @@ A smart WhatsApp bot by Rishabh Sahil - Runs on mobile & laptop with AI-powered 
 
 What is AI Jarvis?
 
-Welcome to AI Jarvis, a versatile WhatsApp bot crafted by Rishabh Sahil, a full-stack developer with 3 years of experience. This bot brings AI-powered chatting, image analysis, music recommendations, and more to your WhatsApp—whether you’re on a phone (via Termux) or a laptop! Hosted at https://github.com/rishabhsahilll/AI-JARVIS-RSY, it’s free and open for everyone to use and enhance!
+Welcome to AI Jarvis, a versatile WhatsApp bot crafted by Rishabh Sahil, a full-stack developer with 3 years of experience. This bot brings AI-powered chatting, image analysis, music recommendations, and more to your WhatsApp—whether you’re on a phone (via Termux) or a laptop! Hosted at https://github.com/rishabhsahilll/AI-Jarvis-WhatsApp-Bot, it’s free and open for everyone to use and enhance!
 
 - Mobile-Friendly: Runs in the background on Android with Termux.
 - Laptop-Ready: Includes system control features like screenshots and volume adjustments.
@@ -37,8 +37,8 @@ Setup on Mobile (Android + Termux)
 2. Install Prerequisites:
    pkg install nodejs git -y
 3. Clone the Repo:
-   git clone https://github.com/rishabhsahilll/AI-JARVIS-RSY.git
-   cd AI-JARVIS-RSY
+   git clone https://github.com/rishabhsahilll/AI-Jarvis-WhatsApp-Bot.git
+   cd AI-Jarvis-WhatsApp-Bot
 4. Install Dependencies:
    npm install
 5. Configure: Create a .env file (see below) with your API keys.
@@ -58,16 +58,16 @@ Setup on Laptop (Windows)
 1. Prerequisites: Install Git (https://git-scm.com/downloads) and Node.js (https://nodejs.org/).
 2. Run Setup Script:
    - Download or clone the repo:
-     git clone https://github.com/rishabhsahilll/AI-JARVIS-RSY.git
+     git clone https://github.com/rishabhsahilll/AI-Jarvis-WhatsApp-Bot.git
    - Open CMD in the repo folder:
-     cd AI-JARVIS-RSY
+     cd AI-Jarvis-WhatsApp-Bot
    - Run:
      setup.bat
    - Follow prompts to enter API keys.
 3. Manual Alternative:
    - Clone the repo:
-     git clone https://github.com/rishabhsahilll/AI-JARVIS-RSY.git
-     cd AI-JARVIS-RSY
+     git clone https://github.com/rishabhsahilll/AI-Jarvis-WhatsApp-Bot.git
+     cd AI-Jarvis-WhatsApp-Bot
    - Install dependencies:
      npm install
    - Create .env (see below).
@@ -81,7 +81,7 @@ Setup on Laptop (Windows)
 
 Configure Your .env
 
-Create a .env file in AI-JARVIS-RSY with:
+Create a .env file in AI-Jarvis-WhatsApp-Bot with:
 GeminiAPIKey=YOUR_GEMINI_API_KEY
 GroqAPIKey1=YOUR_GROQ_API_KEY_1
 GOOGLE_API_KEY=YOUR_GOOGLE_API_KEY
@@ -128,5 +128,5 @@ License
 
 MIT License - Free to use, modify, and share!
 
-Star this repo at https://github.com/rishabhsahilll/AI-JARVIS-RSY if you love it!
+Star this repo at https://github.com/rishabhsahilll/AI-Jarvis-WhatsApp-Bot if you love it!
 Enjoy chatting with Jarvis!
