@@ -10,6 +10,7 @@ const { ChatBot, updateStatus, ensureDir } = require('./chatbot');
 const { RealtimeSearchEngine } = require('./realtimeSearchEngine');
 const { playMusicRecommendation } = require('./play');
 const { MessageMedia } = require('whatsapp-web.js');
+const { fetchLyrics } = require('./lyrics');
 
 // Detect if running on mobile
 const isMobile = process.platform === 'android' || process.platform === 'ios';
@@ -75,7 +76,7 @@ const SystemControl = isMobile ?
 
     const gemini = new GoogleGenerativeAI(process.env.GeminiAPIKey);
     let ownerNumber;
-    const Assistantname = process.env.Assistantname || "Jarvis";
+    const Assistantname = process.env.Assistantname || "BRO A.I";
     const systemControl = new SystemControl(client);
 
     async function getUserSetup(username) {
@@ -177,9 +178,9 @@ const SystemControl = isMobile ?
 🎉 *System Help Center, ${username}!* 🎉
 Main ${Assistantname} hoon, lekin phone pe system commands limited hain!
 
-1️⃣ **@7250 thought <options>** – Status update karo (e.g., "@7250 thought myquery: Somthing")  
-2️⃣ **@7250 feedback <text>** – Feedback do (e.g., "@7250 feedback: Cool bot!")  
-3️⃣ **@7250 help** – Yeh menu dekho!  
+1️⃣ **@0527 thought <options>** – Status update karo (e.g., "@0527 thought myquery: Somthing")  
+2️⃣ **@0527 feedback <text>** – Feedback do (e.g., "@0527 feedback: Cool bot!")  
+3️⃣ **@0527 help** – Yeh menu dekho!  
 *Note:* Baaki features laptop pe available hain!
                 `.trim();
             }
@@ -187,17 +188,17 @@ Main ${Assistantname} hoon, lekin phone pe system commands limited hain!
 🎉 *System Help Center, ${username}!* 🎉
 Main ${Assistantname} hoon, yahan system control ke liye!
 
-1️⃣ **@7250 system info** – CPU, RAM, Battery info dekho!  
-2️⃣ **@7250 speak: <text>** – System bolega (e.g., "@7250 speak: नमस्ते dost")  
-3️⃣ **@7250 volume up <percent>** – Volume badhao (e.g., "@7250 volume up 50%")  
-4️⃣ **@7250 volume** – Current volume check karo!  
-5️⃣ **@7250 thought <options>** – Status update karo (e.g., "@7250 thought myquery: Somthing")  
-6️⃣ **@7250 cmd <command>** – Laptop control (e.g., "@7250 cmd copy F:\\file.txt G:\\")  
-7️⃣ **@7250 ss** – Screenshot le aur bhejo!  
-8️⃣ **@7250 key: <shortcut>** – Shortcut chalao (e.g., "@7250 key: ctrl+c")  
-9️⃣ **@7250 sendme: <path>** – File bhejo (e.g., "@7250 sendme: D:\\pic.jpg")  
-10️⃣ **@7250 feedback <text>** – Feedback do (e.g., "@7250 feedback: Cool bot!")  
-11️⃣ **@7250 help** – Yeh menu dekho!  
+1️⃣ **@0527 system info** – CPU, RAM, Battery info dekho!  
+2️⃣ **@0527 speak: <text>** – System bolega (e.g., "@0527 speak: नमस्ते dost")  
+3️⃣ **@0527 volume up <percent>** – Volume badhao (e.g., "@0527 volume up 50%")  
+4️⃣ **@0527 volume** – Current volume check karo!  
+5️⃣ **@0527 thought <options>** – Status update karo (e.g., "@0527 thought myquery: Somthing")  
+6️⃣ **@0527 cmd <command>** – Laptop control (e.g., "@0527 cmd copy F:\\file.txt G:\\")  
+7️⃣ **@0527 ss** – Screenshot le aur bhejo!  
+8️⃣ **@0527 key: <shortcut>** – Shortcut chalao (e.g., "@0527 key: ctrl+c")  
+9️⃣ **@0527 sendme: <path>** – File bhejo (e.g., "@0527 sendme: D:\\pic.jpg")  
+10️⃣ **@0527 feedback <text>** – Feedback do (e.g., "@0527 feedback: Cool bot!")  
+11️⃣ **@0527 help** – Yeh menu dekho!  
             `.trim();
         }
         return `
@@ -372,7 +373,7 @@ Main ${Assistantname} hoon, aur main yahan madad ke liye hoon! 😊 Default mein
                 return;
             }
 
-            if (query.toLowerCase().startsWith('@7250')) {
+            if (query.toLowerCase().startsWith('@0527')) {
                 const command = query.slice(5).trim();
 
                 if (command.toLowerCase() === 'system info') {
@@ -405,7 +406,7 @@ Main ${Assistantname} hoon, aur main yahan madad ke liye hoon! 😊 Default mein
                             await message.reply('Volume 0-100% ke beech mein do, dost!');
                         }
                     } else {
-                        await message.reply('Format galat hai! Jaise: "@7250 volume up 50%"');
+                        await message.reply('Format galat hai! Jaise: "@0527 volume up 50%"');
                     }
                     return;
                 } else if (command.toLowerCase() === 'volume') {
@@ -464,7 +465,7 @@ Main ${Assistantname} hoon, aur main yahan madad ke liye hoon! 😊 Default mein
                             await client.sendMessage(message.from, media, { caption: `Confirm karo, sahi hua?` });
                         }
                     } else {
-                        await message.reply('Koi command toh do! Jaise: "@7250 cmd dir"');
+                        await message.reply('Koi command toh do! Jaise: "@0527 cmd dir"');
                     }
                     return;
                 } else if (command.toLowerCase() === 'ss') {
@@ -554,7 +555,7 @@ Main ${Assistantname} hoon, aur main yahan madad ke liye hoon! 😊 Default mein
             let taskProcessed = false;
 
             for (const task of decisions) {
-                const match = task.match(/^(start|general|realtime|play|end)\s+(.+)$/);
+                const match = task.match(/^(start|general|realtime|play|end|lyrics)\s+(.+)$/);
                 if (!match) {
                     response = "Arre, yeh kya bol diya? Samajh nahi aaya! 😅";
                     break;
@@ -577,11 +578,15 @@ Main ${Assistantname} hoon, aur main yahan madad ke liye hoon! 😊 Default mein
                     taskProcessed = true;
                     break;
                 } else if (category === 'realtime') {
-                    response = await RealtimeSearchEngine(q, username);
+                    response = await RealtimeSearchEngine(q, username.replace(" ","_"));
                     taskProcessed = true;
                     break;
                 } else if (category === 'play') {
                     response = await playMusicRecommendation(q, username);
+                    taskProcessed = true;
+                    break;
+                } else if (category === 'lyrics') {
+                    response = await fetchLyrics(q, username);
                     taskProcessed = true;
                     break;
                 }

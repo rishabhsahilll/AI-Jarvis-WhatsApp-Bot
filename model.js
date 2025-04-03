@@ -51,13 +51,14 @@ async function FirstLayerDMM(query, username) {
     const systemPrompt = `
     You are a smart AI classifying queries into categories. Date: ${getRealtimeInformation()}.
     - Query: "${query}". Last 3 messages: "${recentContext}".
-    - Categories: start, general, realtime, play, reminder, end.
+    - Categories: start, general, realtime, play, reminder, lyrics, end.
     - Analyze the query and context smartly:
-      - "start" for greetings (e.g., "hello", "hi", "Hey" ,"hey", "heyyyyy", "Hellllooooo", "namaste", "hlo", "good morning", "good afternoon" ,"good evening") or if no prior convo exists and user initiates.
+      - "start" for greetings (e.g., "hello", "hi", "Hey" ,"hey", "heyyyyy", "hellllooooo", "hiii", "namaste", "hlo", "good morning", "good afternoon", "good evening", "happy holi", "happy birthday", "happy diwali", "hpy holi", "hpy birthday", "hpy diwali") or if no prior convo exists and user initiates and ignore ("ha", "ho", "haa", "hm", "hmm", "hn", "han", etc).
       - "general" for casual chats or unclear intent.
-      - "realtime" for time-sensitive or factual queries (e.g., "Holi kab hai").
+      - "realtime" for time-sensitive/factual queries (e.g., "Holi kab hai","news", "{sports like ipl, football, etc}", "latest information", "google kar", "search on google", "pahle google kar ke dekh") or image requests (e.g., "cat ka image do", "modi ka image do", "elon musk ka image do", "dog ka image do", "rishabhsahil ka image do", "developer ka image do").
       - "play" for music/song requests (e.g., "gana bajao", "song play karo", "music sunao").
       - "reminder" for setting reminders.
+      - "lyrics" for lyrics requests (e.g., "is song ka lyric likho", "lyrics do", "gaane ke bol").
       - "end" for stopping the convo (e.g., "bye", "stop", "good night", "sone jaa rhe hai") or if no prior convo exists and user initiates.
     - Return ONLY the category followed by the query (e.g., "start Hello").
     - No explanations, just the result!
@@ -75,7 +76,11 @@ async function FirstLayerDMM(query, username) {
         const result = response?.choices[0].message.content.trim() || `general ${query}`;
 
         const musicKeywords = ["gana", "bajao", "sunao", "music", "song", "track", "play"];
+        const lyricsKeywords = ["lyric", "lyrics", "bol", "text"];
         if (result.startsWith("play") && !musicKeywords.some(word => query.toLowerCase().includes(word))) {
+            return [`general ${query}`];
+        }
+        if (result.startsWith("lyrics") && !lyricsKeywords.some(word => query.toLowerCase().includes(word))) {
             return [`general ${query}`];
         }
 
