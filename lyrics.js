@@ -1,4 +1,3 @@
-// lyrics.js
 const { Groq } = require('groq-sdk');
 const fs = require('fs').promises;
 const path = require('path');
@@ -9,22 +8,42 @@ require('dotenv').config();
 const Assistantname = process.env.Assistantname || "BRO A.I";
 const { fetchWithRetry, ensureDir, getPersonalSummary } = require('./chatbot');
 
+function customSanitize(input) {
+    if (!input) return 'default_user';
+    return input
+        .replace(/[^\w\s-]/g, '_')
+        .replace(/\s+/g, '_')
+        .replace(/_+/g, '_')
+        .trim() || 'default_user';
+}
+
 function getRealtimeInformation() {
     const now = new Date();
     return `${now.getDate()} ${now.toLocaleString('en-IN', { month: 'long', timeZone: 'Asia/Kolkata' })} ${now.getFullYear()}, ${now.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' })}`;
 }
 
 async function moveToOldChatlog(username) {
-    const chatlogPath = path.join(__dirname, `Data/${username}/${username}-ChatLog.json`);
-    const oldChatlogDir = path.join(__dirname, `Data/${username}/Old`);
+    const sanitizedUsername = customSanitize(username); // Ensure sanitization
+    const chatlogPath = path.join(__dirname, `Data/${sanitizedUsername}/${sanitizedUsername}-ChatLog.json`);
+    const oldChatlogDir = path.join(__dirname, `Data/${sanitizedUsername}/Old`);
     const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-    const oldChatlogPath = path.join(oldChatlogDir, `${username}-ChatLog-${timestamp}.json`);
+    const oldChatlogPath = path.join(oldChatlogDir, `${sanitizedUsername}-ChatLog-${timestamp}.json`);
 
     await ensureDir(oldChatlogPath);
-    const messages = await fs.readFile(chatlogPath, 'utf-8').then(JSON.parse).catch(() => []);
+    let messages;
+    try {
+        messages = await fs.readFile(chatlogPath, 'utf-8').then(JSON.parse);
+    } catch (e) {
+        if (e.code === 'ENOENT') {
+            await fs.writeFile(chatlogPath, JSON.stringify([], null, 4), 'utf-8');
+            messages = [];
+        } else {
+            messages = [];
+        }
+    }
     if (messages.length > 0) {
         await fs.writeFile(oldChatlogPath, JSON.stringify(messages, null, 4), 'utf-8');
-        await fs.writeFile(chatlogPath, JSON.stringify(messages.slice(-5)), 'utf-8');
+        await fs.writeFile(chatlogPath, JSON.stringify(messages.slice(-5), null, 4), 'utf-8');
     }
 }
 
@@ -81,7 +100,6 @@ async function fetchRealLyrics(artist, songTitle) {
     console.log(`Fetching real lyrics for: "${searchQuery}"`);
     let lyrics = null, source = null;
 
-    // Step 1: Try lyrics-finder
     try {
         lyrics = await lyricsFinder(artist || songTitle, songTitle);
         if (lyrics && lyrics.length > 50) {
@@ -96,7 +114,6 @@ async function fetchRealLyrics(artist, songTitle) {
         console.log(`lyrics-finder failed: ${e.message}`);
     }
 
-    // Step 2: Fallback to Genius
     if (!lyrics) {
         try {
             const geniusUrl = `https://genius.com/api/search?q=${encodeURIComponent(searchQuery)}`;
@@ -131,7 +148,6 @@ async function fetchRealLyrics(artist, songTitle) {
         }
     }
 
-    // Step 3: Fallback to AZLyrics
     if (!lyrics && artist) {
         try {
             const azSearch = `${artist}${songTitle}`.split(" ").join("").toLowerCase();
@@ -183,13 +199,23 @@ async function generateNewQuery(query, recentContext) {
 }
 
 async function fetchLyrics(query, username) {
-    const normalizedUsername = username.replace(/[-\s]+/g, "_");
-    const chatlogPath = path.join(__dirname, `Data/${normalizedUsername}/${normalizedUsername}-ChatLog.json`);
+    const sanitizedUsername = customSanitize(username); // Already correct
+    const chatlogPath = path.join(__dirname, `Data/${sanitizedUsername}/${sanitizedUsername}-ChatLog.json`);
     await ensureDir(chatlogPath);
-    let messages = await fs.readFile(chatlogPath, 'utf-8').then(JSON.parse).catch(() => []);
+    let messages;
+    try {
+        messages = await fs.readFile(chatlogPath, 'utf-8').then(JSON.parse);
+    } catch (e) {
+        if (e.code === 'ENOENT') {
+            await fs.writeFile(chatlogPath, JSON.stringify([], null, 4), 'utf-8');
+            messages = [];
+        } else {
+            messages = [];
+        }
+    }
 
     if (messages.length >= 20) {
-        await moveToOldChatlog(normalizedUsername);
+        await moveToOldChatlog(sanitizedUsername); // Updated to use sanitizedUsername
         messages = messages.slice(-5);
     }
 
@@ -198,13 +224,11 @@ async function fetchLyrics(query, username) {
 
     const apiMessages = messages.map(({ role, content }) => ({ role, content }));
     const recentContext = messages.slice(-3).map(m => `${m.role}: ${m.content}`).join("\n");
-    const personalSummary = await getPersonalSummary(normalizedUsername);
+    const personalSummary = await getPersonalSummary(sanitizedUsername);
 
-    // Step 1: Initial query refinement
     let refinedQuery = await generateNewQuery(query, recentContext);
     console.log(`Initial refined query: "${refinedQuery}"`);
 
-    // Step 2: Refine further using YouTube data
     refinedQuery = await refineQueryFromYouTube(refinedQuery);
     console.log(`YouTube-refined query: "${refinedQuery}"`);
 
@@ -215,7 +239,7 @@ async function fetchLyrics(query, username) {
     let rawLyrics, lyricsSource, musicLink, videoLink;
     if (wantsAIGenerated) {
         const aiLyricsPrompt = `
-        You are ${Assistantname}, creating original lyrics for ${normalizedUsername.replace("_"," ") || "mera dost"}.
+        You are ${Assistantname}, creating original lyrics for ${sanitizedUsername.replace("_"," ") || "mera dost"}.
         - Query: "${query}". Refined: "${refinedQuery}". Context: "${recentContext}".
         - Generate short, fun lyrics in Hinglish or the song's likely language (e.g., Bhojpuri for Pawan Singh).
         - No links, just lyrics!
@@ -242,7 +266,7 @@ async function fetchLyrics(query, username) {
     }
 
     const systemPrompt = `
-    You are ${Assistantname}, a dost-like AI for ${normalizedUsername.replace("_"," ") || "mera dost"}.
+    You are ${Assistantname}, a dost-like AI for ${sanitizedUsername.replace("_"," ") || "mera dost"}.
     📅 **Date:** ${getRealtimeInformation()}
     🔍 **Query:** "${query}"
     🛠️ **Refined:** "${refinedQuery}"
@@ -288,7 +312,7 @@ async function fetchLyrics(query, username) {
 
         if (!completion) {
             console.log("Groq API failed, using fallback");
-            await moveToOldChatlog(normalizedUsername);
+            await moveToOldChatlog(sanitizedUsername);
             return wantsAIGenerated ? "Arre, lyrics banane mein thodi gadbad! 😅" : "Lyrics mein thodi dikkat aa gayi! Yeh lo music link: " + (musicLink || "Link bhi nahi mila! 😅");
         }
 
@@ -299,17 +323,13 @@ async function fetchLyrics(query, username) {
 
         console.log(`Final response: ${answer}`);
 
-        if (wantsAIGenerated) {
-            messages.push({ role: "assistant", content: answer, timestamp: new Date().toISOString() });
-            await fs.writeFile(chatlogPath, JSON.stringify(messages, null, 4), 'utf-8');
-        } else {
-            await fs.writeFile(chatlogPath, JSON.stringify(messages, null, 4), 'utf-8');
-        }
+        messages.push({ role: "assistant", content: answer, timestamp: new Date().toISOString() });
+        await fs.writeFile(chatlogPath, JSON.stringify(messages, null, 4), 'utf-8');
 
         return answer.trim() || "Kuchh toh bol, bhai! 😜";
     } catch (e) {
         console.error(`❌ Lyrics Error: ${e.message}`);
-        await moveToOldChatlog(normalizedUsername);
+        await moveToOldChatlog(sanitizedUsername);
         return wantsAIGenerated ? "Lyrics banane mein dikkat! 😅" : "Lyrics mein thodi dikkat aa gayi! Yeh lo music link: " + (musicLink || "Link bhi nahi mila! 😅");
     }
 }

@@ -565,30 +565,37 @@ Main ${Assistantname} hoon, aur main yahan madad ke liye hoon! 😊 Default mein
                 const q = match[2];
 
                 if (category === 'start') {
+                    console.log(category)
                     response = await ChatBot(q, username, client);
                     taskProcessed = true;
                     break;
                 } else if (category === 'end') {
+                    console.log(category)
                     await updateUserSetup(username, "stop");
                     response = await ChatBot(q, username, client);
                     taskProcessed = true;
                     break;
                 } else if (category === 'general') {
+                    console.log(category)
                     response = await ChatBot(q, username, client);
                     taskProcessed = true;
                     break;
                 } else if (category === 'realtime') {
+                    console.log(category)
                     response = await RealtimeSearchEngine(q, username.replace(" ","_"));
                     taskProcessed = true;
                     break;
                 } else if (category === 'play') {
+                    console.log(category)
                     response = await playMusicRecommendation(q, username);
                     taskProcessed = true;
                     break;
                 } else if (category === 'lyrics') {
+                    console.log(category)
                     response = await fetchLyrics(q, username);
                     taskProcessed = true;
                     break;
+                    
                 }
             }
 

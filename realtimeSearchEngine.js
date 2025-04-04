@@ -7,6 +7,15 @@ require('dotenv').config();
 const Assistantname = process.env.Assistantname || "BRO A.I";
 const { fetchWithRetry, ensureDir, getPersonalSummary } = require('./chatbot');
 
+function customSanitize(input) { // Added for consistency
+    if (!input) return 'default_user';
+    return input
+        .replace(/[^\w\s-]/g, '_')
+        .replace(/\s+/g, '_')
+        .replace(/_+/g, '_')
+        .trim() || 'default_user';
+}
+
 function getRealtimeInformation() {
     const now = new Date();
     return `${now.getDate()} ${now.toLocaleString('en-IN', { month: 'long', timeZone: 'Asia/Kolkata' })} ${now.getFullYear()}, ${now.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' })}`;
@@ -29,17 +38,14 @@ async function fetchGoogleSearch(query) {
 }
 
 async function RealtimeSearchEngine(query, username) {
-    const chatlogPath = path.join(__dirname, `Data/${username}/${username}-ChatLog.json`);
-    // console.log(`\n\nRealtimeSearchEngine called for ${username} with query: ${query}`);
+    const sanitizedUsername = customSanitize(username); // Updated to use customSanitize
+    const chatlogPath = path.join(__dirname, `Data/${sanitizedUsername}/${sanitizedUsername}-ChatLog.json`);
     await ensureDir(chatlogPath);
     let messages = await fs.readFile(chatlogPath, 'utf-8').then(JSON.parse).catch(() => []);
 
-    // Check if messages exceed 20, move older ones to Old folder
     if (messages.length >= 20) {
-        // console.log(`\n\nMessage count ${messages.length} exceeded 20, moving old chats for ${username}`);
-        await require('./chatbot').moveToOldChatlog(username);
+        await require('./chatbot').moveToOldChatlog(sanitizedUsername); // Updated
         messages = messages.slice(-5);
-        // console.log(`\n\nTrimmed to last 5 messages: ${JSON.stringify(messages)}`);
     }
 
     messages.push({ role: "user", content: query, timestamp: new Date().toISOString() });
@@ -47,7 +53,7 @@ async function RealtimeSearchEngine(query, username) {
 
     const apiMessages = messages.map(({ role, content }) => ({ role, content }));
     const recentContext = messages.slice(-3).map(m => `${m.role}: ${m.content}`).join("\n");
-    const personalSummary = await getPersonalSummary(username);
+    const personalSummary = await getPersonalSummary(sanitizedUsername); // Updated
 
     const intentPrompt = `
     You are a smart AI figuring out what the user wants. Query: "${query}". Last 3 messages: "${recentContext}".
@@ -68,13 +74,13 @@ async function RealtimeSearchEngine(query, username) {
     const liveData = refinedQuery !== "None" ? await fetchGoogleSearch(refinedQuery) : "Kuchh nahi mila, bhai!";
 
     const systemPrompt = `
-    You are ${Assistantname}, a quick AI dost for ${username.replace("_"," ") || "mera dost"}.  
+    You are ${Assistantname}, a quick AI dost for ${sanitizedUsername.replace("_"," ") || "mera dost"}.  
 📅 **Date:** ${getRealtimeInformation()}  
 
 💬 **Refined Query:** "${refinedQuery}"  
 🕒 **Last 3 Messages:** "${recentContext}"  
 📡 **Live Info:** "${liveData}"  
-ℹ️ **Usear Personal info:** "${personalSummary}"  
+ℹ️ **User Personal info:** "${personalSummary}"  
 
 ⚡ **Response Rules:**  
 ✅ **User ke tone/style se match kar—Hinglish mein short, fun aur smart reply de!**  
@@ -103,7 +109,6 @@ Banaya hai mere dost **Rishabh Kumar**, ek **3 saal ka experienced full-stack de
 `;
 
     try {
-        // console.log(`\n\nRealtime search for: ${query}`);
         const completion = await fetchWithRetry(client =>
             client.chat.completions.create({
                 model: "llama3-70b-8192",
@@ -115,7 +120,7 @@ Banaya hai mere dost **Rishabh Kumar**, ek **3 saal ka experienced full-stack de
         );
 
         if (!completion) {
-            await require('./chatbot').moveToOldChatlog(username);
+            await require('./chatbot').moveToOldChatlog(sanitizedUsername); // Updated
             return "Bhai, thodi si gadbad! Live info nahi aa paya! 😅";
         }
 
@@ -124,7 +129,6 @@ Banaya hai mere dost **Rishabh Kumar**, ek **3 saal ka experienced full-stack de
             if (chunk.choices[0].delta.content) answer += chunk.choices[0].delta.content;
         }
 
-        // console.log(`\n\nRealtime response: ${answer}`);
         messages.push({ role: "assistant", content: answer, timestamp: new Date().toISOString() });
         await fs.writeFile(chatlogPath, JSON.stringify(messages, null, 4), 'utf-8');
         return answer.trim() || "Kuchh toh mila hi nahi, bhai! 😜";

@@ -1,5 +1,18 @@
 const { Groq } = require('groq-sdk');
+const path = require('path');
+const fs = require('fs').promises;
 require('dotenv').config();
+const { ensureDir } = require('./chatbot'); // Import ensureDir from chatbot.js
+
+// Custom Sanitization Function (copied from whatsappBot.js for consistency)
+function customSanitize(input) {
+    if (!input) return 'default_user';
+    return input
+        .replace(/[^\w\s-]/g, '_')
+        .replace(/\s+/g, '_')
+        .replace(/_+/g, '_')
+        .trim() || 'default_user';
+}
 
 const GroqAPIKeys = [
     process.env.GroqAPIKey1,
@@ -44,8 +57,21 @@ function getRealtimeInformation() {
 }
 
 async function FirstLayerDMM(query, username) {
-    const chatlogPath = require('path').join(__dirname, `Data/${username}/${username}-ChatLog.json`);
-    let messages = await require('fs').promises.readFile(chatlogPath, 'utf-8').then(JSON.parse).catch(() => []);
+    const sanitizedUsername = customSanitize(username); // Sanitize username
+    const chatlogPath = path.join(__dirname, `Data/${sanitizedUsername}/${sanitizedUsername}-ChatLog.json`);
+    await ensureDir(chatlogPath); // Ensure directory exists
+    let messages;
+    try {
+        messages = await fs.readFile(chatlogPath, 'utf-8').then(JSON.parse);
+    } catch (e) {
+        if (e.code === 'ENOENT') {
+            // If file doesn't exist, create it with an empty array
+            await fs.writeFile(chatlogPath, JSON.stringify([], null, 4), 'utf-8');
+            messages = [];
+        } else {
+            messages = [];
+        }
+    }
     const recentContext = messages.slice(-5).map(m => `${m.role}: ${m.content}`).join("\n");
 
     const systemPrompt = `
@@ -53,7 +79,7 @@ async function FirstLayerDMM(query, username) {
     - Query: "${query}". Last 3 messages: "${recentContext}".
     - Categories: start, general, realtime, play, reminder, lyrics, end.
     - Analyze the query and context smartly:
-      - "start" for greetings (e.g., "hello", "hi", "Hey" ,"hey", "heyyyyy", "hellllooooo", "hiii", "namaste", "hlo", "good morning", "good afternoon", "good evening", "happy holi", "happy birthday", "happy diwali", "hpy holi", "hpy birthday", "hpy diwali") or if no prior convo exists and user initiates and ignore ("ha", "ho", "haa", "hm", "hmm", "hn", "han", etc).
+      - "start" for greetings (e.g., "hello", "hi", "Hey" ,"hey", "heyyyyy", "hellllooooo", "hiii", "namaste", "hlo", "good morning", "good afternoon", "good evening", "happy holi", "happy birthday", "happy diwali", "hpy holi", "hpy birthday", "hpy diwali" {bas or koi words mat lena jitna hai itna hi lena}) or if no prior convo exists and user initiates and ignore ("ha", "ho", "haa", "hm", "hmm", "hn", "han", etc).
       - "general" for casual chats or unclear intent.
       - "realtime" for time-sensitive/factual queries (e.g., "Holi kab hai","news", "{sports like ipl, football, etc}", "latest information", "google kar", "search on google", "pahle google kar ke dekh") or image requests (e.g., "cat ka image do", "modi ka image do", "elon musk ka image do", "dog ka image do", "rishabhsahil ka image do", "developer ka image do").
       - "play" for music/song requests (e.g., "gana bajao", "song play karo", "music sunao").
@@ -78,17 +104,15 @@ async function FirstLayerDMM(query, username) {
         const musicKeywords = ["gana", "bajao", "sunao", "music", "song", "track", "play"];
         const lyricsKeywords = ["lyric", "lyrics", "bol", "text"];
         if (result.startsWith("play") && !musicKeywords.some(word => query.toLowerCase().includes(word))) {
-            return [`general ${query}`];
+            return [`play ${query}`];
         }
         if (result.startsWith("lyrics") && !lyricsKeywords.some(word => query.toLowerCase().includes(word))) {
-            return [`general ${query}`];
+            return [`lyrics ${query}`];
         }
 
-        // console.log(`AI Decision: ${result}`);
         return [result];
     } catch (e) {
         console.error(`❌ FirstLayerDMM Error: ${e.message}`);
-        // console.log(`AI Decision (Fallback): general ${query}`);
         return [`general ${query}`];
     }
 }
