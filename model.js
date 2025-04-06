@@ -85,7 +85,7 @@ async function FirstLayerDMM(query, username) {
       - "play" for music/song requests (e.g., "gana bajao", "song play karo", "music sunao").
       - "reminder" for setting reminders.
       - "lyrics" for lyrics requests (e.g., "is song ka lyric likho", "lyrics do", "gaane ke bol").
-      - "end" for stopping the convo (e.g., "bye", "stop", "good night", "sone jaa rhe hai") or if no prior convo exists and user initiates.
+      - "end" for stopping the convo (e.g., "bye", "stop", "good night", "sone jaa rhe hai", "byee") or if no prior convo exists and user initiates.
     - Return ONLY the category followed by the query (e.g., "start Hello").
     - No explanations, just the result!
     `;

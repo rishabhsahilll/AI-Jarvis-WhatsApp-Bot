@@ -15,6 +15,11 @@ const { fetchLyrics } = require('./lyrics');
 // Detect if running on mobile
 const isMobile = process.platform === 'android' || process.platform === 'ios';
 
+// Define startup greetings list
+const startupGreetings = [
+    "hlo", "hii", "hello", "hi", "good morning", "good afternoon", "good evening", "hey", "ga", "gm", "ge", "heyy", ".", "jarvis"
+].map(g => g.toLowerCase()); // Case-insensitive matching
+
 // Custom Sanitization Function
 function customSanitize(input) {
     if (!input) return 'default_user';
@@ -329,6 +334,7 @@ Main ${Assistantname} hoon, aur main yahan madad ke liye hoon! 😊 Default mein
             const contact = await message.getContact();
             const username = getUsername(contact);
             let query = message.body.trim();
+            const queryLower = query.toLowerCase(); // For case-insensitive checks
 
             if (!query && !message.hasMedia) return;
             if (chat.isGroup && !message.mentionedIds.includes(client.info.wid._serialized)) return;
@@ -339,9 +345,36 @@ Main ${Assistantname} hoon, aur main yahan madad ke liye hoon! 😊 Default mein
             await ensureDir(chatlogPath);
             let messages = await fs.readFile(chatlogPath, 'utf-8').then(JSON.parse).catch(() => []);
 
-            if (query === '.' || query.toLowerCase() === 'hello') {
-                await updateUserSetup(username, "start");
-                query = 'hello';
+            const userSetup = await getUserSetup(username);
+            let isStarted = userSetup.state === "start";
+
+            // Check if the message contains at least one startup greeting and additional word(s)
+            if (!isStarted) {
+                const words = queryLower.split(/\s+/); // Split into words
+                const hasGreeting = words.some(word => startupGreetings.includes(word)); // Check if any word is a greeting
+                const hasAdditionalWords = words.length > 1; // Check if there's more than one word
+                if (hasGreeting && hasAdditionalWords) {
+                    await updateUserSetup(username, "start");
+                    const reply = await ChatBot(query, username, client);
+                    await message.reply(reply);
+                    return;
+                }
+
+                else if (hasGreeting) {
+                    await updateUserSetup(username, "start");
+                    const reply = await ChatBot(query, username, client);
+                    await message.reply(reply);
+                    return;
+                }
+                return; // Ignore if not started and doesn't match the condition
+            }
+
+            // Check for startup greetings
+            if (!isStarted && startupGreetings.includes(queryLower)) {
+                await updateUserSetup(username, "start"); // Set state to start
+                const reply = await ChatBot(query, username, client);
+                await message.reply(reply);
+                return;
             }
 
             if (mediaPath && message.type === 'image') {
@@ -363,9 +396,6 @@ Main ${Assistantname} hoon, aur main yahan madad ke liye hoon! 😊 Default mein
             }
 
             if (mediaPath) return;
-
-            const userSetup = await getUserSetup(username);
-            let isStarted = userSetup.state === "start";
 
             if (query.toLowerCase() === "help") {
                 const helpResponse = await showHelp(username);
@@ -536,20 +566,6 @@ Main ${Assistantname} hoon, aur main yahan madad ke liye hoon! 😊 Default mein
                 return;
             }
 
-            if (!isStarted) {
-                const decisions = await FirstLayerDMM(query, username);
-                for (const task of decisions) {
-                    const match = task.match(/^(start)\s+(.+)$/);
-                    if (match) {
-                        await updateUserSetup(username, "start");
-                        const response = await ChatBot(query, username, client);
-                        await message.reply(response);
-                        return;
-                    }
-                }
-                return;
-            }
-
             const decisions = await FirstLayerDMM(query, username);
             let response = '';
             let taskProcessed = false;
@@ -557,7 +573,7 @@ Main ${Assistantname} hoon, aur main yahan madad ke liye hoon! 😊 Default mein
             for (const task of decisions) {
                 const match = task.match(/^(start|general|realtime|play|end|lyrics)\s+(.+)$/);
                 if (!match) {
-                    response = "Arre, yeh kya bol diya? Samajh nahi aaya! 😅";
+                    response = await ChatBot(query, username, client); // Default to ChatBot if no match
                     break;
                 }
 
@@ -565,42 +581,41 @@ Main ${Assistantname} hoon, aur main yahan madad ke liye hoon! 😊 Default mein
                 const q = match[2];
 
                 if (category === 'start') {
-                    console.log(category)
+                    console.log(category);
                     response = await ChatBot(q, username, client);
                     taskProcessed = true;
                     break;
                 } else if (category === 'end') {
-                    console.log(category)
+                    console.log(category);
                     await updateUserSetup(username, "stop");
                     response = await ChatBot(q, username, client);
                     taskProcessed = true;
                     break;
                 } else if (category === 'general') {
-                    console.log(category)
+                    console.log(category);
                     response = await ChatBot(q, username, client);
                     taskProcessed = true;
                     break;
                 } else if (category === 'realtime') {
-                    console.log(category)
-                    response = await RealtimeSearchEngine(q, username.replace(" ","_"));
+                    console.log(category);
+                    response = await RealtimeSearchEngine(q, username, client);
                     taskProcessed = true;
                     break;
                 } else if (category === 'play') {
-                    console.log(category)
-                    response = await playMusicRecommendation(q, username);
+                    console.log(category);
+                    response = await playMusicRecommendation(q, username, client); 
                     taskProcessed = true;
                     break;
                 } else if (category === 'lyrics') {
-                    console.log(category)
-                    response = await fetchLyrics(q, username);
+                    console.log(category);
+                    response = await fetchLyrics(q, username, client); 
                     taskProcessed = true;
                     break;
-                    
                 }
             }
 
             if (!taskProcessed) {
-                response = "Kuch samajh nahi aaya, dost! Kya bolna chahta hai? 🤔";
+                response = await ChatBot(query, username, client); // Fallback to ChatBot
             }
 
             await message.reply(response);
