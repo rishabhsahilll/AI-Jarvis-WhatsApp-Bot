@@ -108,9 +108,9 @@ The Developer
 Rishabh Sahil is the mastermind behind AI Jarvis! With 3 years of full-stack development experience, he’s built a bot that’s both fun and functional. Connect with him:
 - Instagram: https://instagram.com/rishabhsahill
 - GitHub: https://github.com/rishabhsahilll
-- Portfolio: https://portfolio-flask-application.vercel.app
+- Portfolio: https://rishabhsahill.vercel.app/
 - R.S.E: https://rishabhsahilll.github.io/rishabh-search-engine/
-- Anti-Social Media: https://netrarsy.pythonanywhere.com
+- Anti-Social Media (Netra): https://netrarsy.pythonanywhere.com
 
 Contribute
 
