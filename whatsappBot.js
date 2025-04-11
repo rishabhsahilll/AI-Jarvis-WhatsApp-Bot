@@ -17,7 +17,41 @@ const isMobile = process.platform === 'android' || process.platform === 'ios';
 
 // Define startup greetings list
 const startupGreetings = [
-    "hlo", "hii", "hello", "hi", "good morning", "good afternoon", "good evening", "hey", "ga", "gm", "ge", "heyy", ".", "jarvis"
+    // Basic greetings
+    "hi", "hii", "hiii", "hiiii", "hiiiii", "hiiiiii", "hiiiiiii",
+    "hello", "hallo", "helo", "helloo", "heloo", "hlo", "hllo",
+    "hey", "heyy", "heyyy", "heyyyy", "heya", "heyya", "heyyo",
+    "yo", "yoo", "yooo", "yoy", "yoyo",
+    
+    // Morning greetings
+    "good morning", "goodmorning", "gm", "gdm", "gud morning", 
+    "gudmorning", "good mornin", "gud mornin", "morning", "mornin",
+    "gd morning", "gd mornin", "mng", "morn", "gud mng",
+    
+    // Afternoon greetings
+    "good afternoon", "goodafternoon", "ga", "gud afternoon", 
+    "gudafternoon", "good aftrnoon", "gud aftrnoon", "afternoon",
+    "gd afternoon", "gd aftrnoon", "aftn", "gud aftn",
+    
+    // Evening greetings
+    "good evening", "goodevening", "ge", "gud evening", 
+    "gudevening", "good evning", "gud evning", "evening", "evning",
+    "gd evening", "gd evning", "evng", "gud evng",
+    
+    // Wake-up greetings
+    "wake up", "wakeup", "wake", "wakey", "waky", "wakee",
+    "utho", "uth", "utth", "uthoo", "uthja", "uthjaa",
+    "jagoo", "jago", "jag", "jaggo", "jagja", "jagjaa",
+    "get up", "getup", "gettup", "get upp", "gup",
+    
+    // Casual/Other
+    "jarvis", ".", "sup", "wassup", "whatsup", "whatssup", "whsup",
+    "hola", "holla", "heya", "hiya", "hy", "hie",
+    "namaste", "namste", "nmste", "namskar", "namaskar",
+    "salut", "sala", "salu", "salo",
+    "oi", "oii", "oy", "oye", "oyee",
+    "bhai", "bro", "dude", "dost", "yaar", "yar",
+    "holaa", "hellow", "hiiiiiiiii", "heyyyyy"
 ].map(g => g.toLowerCase()); // Case-insensitive matching
 
 // Custom Sanitization Function
@@ -330,11 +364,20 @@ Main ${Assistantname} hoon, aur main yahan madad ke liye hoon! 😊 Default mein
 
     client.on('message', async (message) => {
         try {
+            const ownerNumber = client.info.wid._serialized;
             const chat = await message.getChat();
             const contact = await message.getContact();
             const username = getUsername(contact);
             let query = message.body.trim();
             const queryLower = query.toLowerCase(); // For case-insensitive checks
+            const isGroup = chat.id._serialized.endsWith('@g.us');
+            // const cisGroup = chat.id._serialized.endsWith('@c.us');
+            const mentioned = message.mentionedIds?.length ? message.mentionedIds.join(', ') : 'None';
+
+            // console.log(`Group --> ${isGroup}`);
+            // console.log(`Contact --> ${ownerNumber}`);
+            // // console.log(`Group --> ${cisGroup}`);
+            // console.log(`Mentioned --> ${mentioned}`);
 
             if (!query && !message.hasMedia) return;
             if (chat.isGroup && !message.mentionedIds.includes(client.info.wid._serialized)) return;
@@ -348,33 +391,22 @@ Main ${Assistantname} hoon, aur main yahan madad ke liye hoon! 😊 Default mein
             const userSetup = await getUserSetup(username);
             let isStarted = userSetup.state === "start";
 
-            // Check if the message contains at least one startup greeting and additional word(s)
+            // New startup logic
             if (!isStarted) {
                 const words = queryLower.split(/\s+/); // Split into words
-                const hasGreeting = words.some(word => startupGreetings.includes(word)); // Check if any word is a greeting
-                const hasAdditionalWords = words.length > 1; // Check if there's more than one word
-                if (hasGreeting && hasAdditionalWords) {
+                const firstWord = words[0];
+                const hasGreeting = startupGreetings.includes(firstWord);
+                const isSingleGreeting = words.length === 1 && hasGreeting;
+                const hasGreetingWithText = hasGreeting && words.length > 1;
+
+                if (isSingleGreeting || hasGreetingWithText) {
                     await updateUserSetup(username, "start");
+                    console.log("Start!")
                     const reply = await ChatBot(query, username, client);
                     await message.reply(reply);
                     return;
                 }
-
-                else if (hasGreeting) {
-                    await updateUserSetup(username, "start");
-                    const reply = await ChatBot(query, username, client);
-                    await message.reply(reply);
-                    return;
-                }
-                return; // Ignore if not started and doesn't match the condition
-            }
-
-            // Check for startup greetings
-            if (!isStarted && startupGreetings.includes(queryLower)) {
-                await updateUserSetup(username, "start"); // Set state to start
-                const reply = await ChatBot(query, username, client);
-                await message.reply(reply);
-                return;
+                return; // Ignore if not started and doesn't match startup condition
             }
 
             if (mediaPath && message.type === 'image') {
@@ -570,59 +602,57 @@ Main ${Assistantname} hoon, aur main yahan madad ke liye hoon! 😊 Default mein
             let response = '';
             let taskProcessed = false;
 
-            for (const task of decisions) {
-                const match = task.match(/^(start|general|realtime|play|end|lyrics)\s+(.+)$/);
-                if (!match) {
-                    response = await ChatBot(query, username, client); // Default to ChatBot if no match
-                    break;
+            const processTasks = async (decisions, query, username, client) => {
+                for (const task of decisions) {
+                    const match = task.match(/^(start|general|realtime|play|end|lyrics)\s+(.+)$/);
+                    if (!match) {
+                        return await ChatBot(query, username, client); // fallback
+                    }
+            
+                    const category = match[1];
+                    const q = match[2];
+            
+                    console.log(category);
+            
+                    switch (category) {
+                        case 'start':
+                            return await ChatBot(q, username, client);
+                        case 'end':
+                            await updateUserSetup(username, "stop");
+                            return await ChatBot(q, username, client);
+                        case 'general':
+                            return await ChatBot(q, username, client);
+                        case 'realtime':
+                            return await RealtimeSearchEngine(q, username, client);
+                        case 'play':
+                            return await playMusicRecommendation(q, username, client);
+                        case 'lyrics':
+                            return await fetchLyrics(q, username, client);
+                        default:
+                            return await ChatBot(query, username, client);
+                    }
                 }
-
-                const category = match[1];
-                const q = match[2];
-
-                if (category === 'start') {
-                    console.log(category);
-                    response = await ChatBot(q, username, client);
+            };
+            
+            if (isGroup) {
+                if (mentioned == ownerNumber) {
+                    const filtered_ownerNumber = `@${ownerNumber.replace("@c.us","").replace("@g.us","")}`
+                    const filtred_query = query.replace(filtered_ownerNumber,"")
+                    response = await processTasks(decisions, filtred_query, username, client);
                     taskProcessed = true;
-                    break;
-                } else if (category === 'end') {
-                    console.log(category);
-                    await updateUserSetup(username, "stop");
-                    response = await ChatBot(q, username, client);
-                    taskProcessed = true;
-                    break;
-                } else if (category === 'general') {
-                    console.log(category);
-                    response = await ChatBot(q, username, client);
-                    taskProcessed = true;
-                    break;
-                } else if (category === 'realtime') {
-                    console.log(category);
-                    response = await RealtimeSearchEngine(q, username, client);
-                    taskProcessed = true;
-                    break;
-                } else if (category === 'play') {
-                    console.log(category);
-                    response = await playMusicRecommendation(q, username, client); 
-                    taskProcessed = true;
-                    break;
-                } else if (category === 'lyrics') {
-                    console.log(category);
-                    response = await fetchLyrics(q, username, client); 
-                    taskProcessed = true;
-                    break;
+                    await message.reply(response);
+                } else {
+                    console.log("Group but not mentioned");
                 }
+            } else {
+                response = await processTasks(decisions, query, username, client);
+                taskProcessed = true;
+                await message.reply(response);
             }
-
-            if (!taskProcessed) {
-                response = await ChatBot(query, username, client); // Fallback to ChatBot
-            }
-
-            await message.reply(response);
 
         } catch (e) {
             console.error(`❌ Message Error: ${e.message}`);
-            await client.sendMessage(message.from, "Arre yaar, kuchh gadbad ho gaya! Main fix karta hoon! 😅");
+            // await client.sendMessage(message.from, `Arre yaar, ye "${e.message}" error aagya hai! Main fix karta hoon! 😅`);
         }
     });
 
