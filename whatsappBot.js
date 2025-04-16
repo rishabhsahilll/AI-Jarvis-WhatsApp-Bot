@@ -1,7 +1,6 @@
 const { execSync } = require('child_process');
 const qrcode = require('qrcode-terminal');
 const fs = require('fs').promises;
-const fsSync = require('fs');
 const path = require('path');
 require('dotenv').config();
 const axios = require('axios');
@@ -50,8 +49,8 @@ const startupGreetings = [
     "namaste", "namste", "nmste", "namskar", "namaskar",
     "salut", "sala", "salu", "salo",
     "oi", "oii", "oy", "oye", "oyee",
-    "bhai", "bro", "dude", "dost", "yaar", "yar",
-    "holaa", "hellow", "hiiiiiiiii", "heyyyyy"
+    "holaa", "hellow", "hiiiiiiiii", "heyyyyy",
+    "helo", "heelo", "helllo", "helloo", "heloo", "heelo", "heello"
 ].map(g => g.toLowerCase()); // Case-insensitive matching
 
 // Custom Sanitization Function
@@ -62,6 +61,77 @@ function customSanitize(input) {
         .replace(/\s+/g, '_')
         .replace(/_+/g, '_')
         .trim() || 'default_user';
+}
+
+const folderPath = path.join(__dirname, 'Blocked User');
+const filePath = path.join(folderPath, 'blockedlist.txt');
+
+async function loadBlockedUsers() {
+    try {
+        // Ensure folder and file exist
+        await fs.mkdir(folderPath, { recursive: true });
+        try {
+            await fs.access(filePath);
+        } catch (err) {
+            await fs.writeFile(filePath, '', 'utf-8');
+        }
+
+        // Read file and return Set of blocked users
+        const data = await fs.readFile(filePath, 'utf-8');
+        const blockedSet = new Set(
+            data.split(',') // Use comma separator
+                .map(name => name.trim().toLowerCase())
+                .filter(name => name.length > 0)
+        );
+        return blockedSet;
+    } catch (err) {
+        console.error("❌ Error handling blocked list:", err);
+        return new Set();
+    }
+}
+
+async function updateBlockedUser(username, shouldBlock, username1) {
+    const user = username.trim().toLowerCase();
+
+    try {
+        // Ensure folder and file exist
+        await fs.mkdir(folderPath, { recursive: true });
+        try {
+            await fs.access(filePath);
+        } catch (err) {
+            await fs.writeFile(filePath, '', 'utf-8');
+        }
+
+        // Load current blocked users
+        const data = await fs.readFile(filePath, 'utf-8');
+        const blockedSet = new Set(
+            data.split(',')
+                .map(name => name.trim().toLowerCase())
+                .filter(name => name.length > 0)
+        );
+
+        // Perform block or unblock action
+        if (shouldBlock) {
+            if (blockedSet.has(user)) {
+                return `You are already on the block list.`;
+            } else {
+                blockedSet.add(user);
+                await fs.writeFile(filePath, [...blockedSet].join(', '), 'utf-8');
+                return `You have been blocked.`;
+            }
+        } else {
+            if (blockedSet.has(user)) {
+                blockedSet.delete(user);
+                await fs.writeFile(filePath, [...blockedSet].join(', '), 'utf-8');
+                return `You have been unblocked.`;
+            } else {
+                return `You are not on the block list.`;
+            }
+        }
+    } catch (err) {
+        console.error("❌ Error updating blocked list:", err);
+        return `❌ Something went wrong while updating block status.`;
+    }
 }
 
 // Modified dependency checker
@@ -356,59 +426,129 @@ Main ${Assistantname} hoon, aur main yahan madad ke liye hoon! 😊 Default mein
     client.on('ready', async () => {
         ownerNumber = client.info.wid._serialized;
         systemControl.ownerNumber = ownerNumber;
-        await client.sendMessage(ownerNumber, `Hey ${process.env.Developername}, I am ${Assistantname}, --> ON`);
+    
+        const onMessage = `Hey ${process.env.Developername}, I am ${Assistantname}, --> ON`;
+        try {
+            await client.sendMessage(ownerNumber, onMessage);
+            console.log(`✅ Sent ON message to ${ownerNumber}: ${onMessage}`);
+        } catch (error) {
+            console.error(`❌ Error sending ON message: ${error.message}`);
+        }
+    
+        // Set initial online presence
+        await client.sendPresenceAvailable();
+        // console.log('✅ Bot set to online status');
+    
+        // Periodically update presence to stay online
+        const presenceInterval = setInterval(async () => {
+            try {
+                await client.sendPresenceAvailable();
+                // console.log('✅ Refreshed online status');
+            } catch (error) {
+                console.error('❌ Error refreshing presence:', error.message);
+            }
+        }, 30000); // Update every 30 seconds
+    
         await updateThought(null, null, Assistantname);
         if (!isMobile) systemControl.startBatteryMonitor();
         await keepAlive();
+    
+        // Clear interval on disconnect
+        client.on('disconnected', () => {
+            clearInterval(presenceInterval);
+        });
     });
+
+    
 
     client.on('message', async (message) => {
         try {
-            const ownerNumber = client.info.wid._serialized;
             const chat = await message.getChat();
             const contact = await message.getContact();
             const username = getUsername(contact);
             let query = message.body.trim();
-            const queryLower = query.toLowerCase(); // For case-insensitive checks
-            const isGroup = chat.id._serialized.endsWith('@g.us');
-            // const cisGroup = chat.id._serialized.endsWith('@c.us');
-            const mentioned = message.mentionedIds?.length ? message.mentionedIds.join(', ') : 'None';
-
-            // console.log(`Group --> ${isGroup}`);
-            // console.log(`Contact --> ${ownerNumber}`);
-            // // console.log(`Group --> ${cisGroup}`);
-            // console.log(`Mentioned --> ${mentioned}`);
-
+            const queryLower = query.toLowerCase();
+            const isGroup = chat.isGroup;
+            const ownerNumber = client.info.wid._serialized;
+    
             if (!query && !message.hasMedia) return;
-            if (chat.isGroup && !message.mentionedIds.includes(client.info.wid._serialized)) return;
+            if (isGroup && !message.mentionedIds.includes(client.info.wid._serialized)) return;
+    
+            // Start typing effect after 2 seconds
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            await chat.sendSeen();
+            await new Promise(resolve => setTimeout(resolve, 1000));
+
+            // Generate random total delay (5-12 seconds for natural typing)
+            const totalDelaySeconds = 5 + Math.floor(Math.random() * 8); // Random between 5-12 seconds
+            const totalDelayMs = totalDelaySeconds * 1000;
+            console.log(`Typing Effect Delay: ${totalDelaySeconds}s`);
+
+            // Randomly choose 1 or 2 pauses (50% chance for each)
+            const numPauses = Math.random() < 0.5 ? 1 : 2;
+            // Calculate pause positions (e.g., at 40% and 80% of total delay for 2 pauses)
+            const pausePositions = numPauses === 1
+                ? [totalDelayMs * 0.5] // Single pause at midpoint
+                : [totalDelayMs * 0.4, totalDelayMs * 0.8]; // Two pauses at 40% and 80%
+
+            const startTime = Date.now();
+            for (let i = 0; i < pausePositions.length; i++) {
+                const position = pausePositions[i];
+                // Wait until the pause position
+                const elapsed = Date.now() - startTime;
+                if (elapsed < position) {
+                    await chat.sendStateTyping();
+                    await new Promise(resolve => setTimeout(resolve, position - elapsed));
+                }
+
+                // Pause typing for exactly 1 second
+                await chat.clearState();
+                await new Promise(resolve => setTimeout(resolve, 1000)); // 1-second pause
+
+                // Resume typing for 0.5-1 second
+                await chat.sendStateTyping();
+                const typingDuration = 500 + Math.random() * 500; // 0.5-1s
+                await new Promise(resolve => setTimeout(resolve, typingDuration));
+            }
+
+            // Wait until total delay is complete
+            const elapsed = Date.now() - startTime;
+            if (elapsed < totalDelayMs) {
+                await chat.sendStateTyping();
+                await new Promise(resolve => setTimeout(resolve, totalDelayMs - elapsed));
+            }
+            // Clear typing state before processing
+            await chat.clearState();
 
             const mediaPath = await saveMedia(username, message);
             const sanitizedUsername = customSanitize(username);
             const chatlogPath = path.join(__dirname, `Data/${sanitizedUsername}/${sanitizedUsername}-ChatLog.json`);
             await ensureDir(chatlogPath);
             let messages = await fs.readFile(chatlogPath, 'utf-8').then(JSON.parse).catch(() => []);
-
+    
             const userSetup = await getUserSetup(username);
             let isStarted = userSetup.state === "start";
-
-            // New startup logic
+    
+            // Handle startup logic
             if (!isStarted) {
-                const words = queryLower.split(/\s+/); // Split into words
+                const words = queryLower.split(/\s+/);
                 const firstWord = words[0];
                 const hasGreeting = startupGreetings.includes(firstWord);
                 const isSingleGreeting = words.length === 1 && hasGreeting;
                 const hasGreetingWithText = hasGreeting && words.length > 1;
-
+    
                 if (isSingleGreeting || hasGreetingWithText) {
                     await updateUserSetup(username, "start");
-                    console.log("Start!")
                     const reply = await ChatBot(query, username, client);
+                    await chat.clearState(); // Stop typing effect
                     await message.reply(reply);
                     return;
                 }
-                return; // Ignore if not started and doesn't match startup condition
+                await chat.clearState(); // Stop typing effect
+                return;
             }
-
+    
+            // Handle image commands
             if (mediaPath && message.type === 'image') {
                 const isImageCommand = ['/image', '\\image', '/analyze', '\\analyze'].includes(query.split(' ')[0].toLowerCase());
                 if (isImageCommand) {
@@ -421,66 +561,67 @@ Main ${Assistantname} hoon, aur main yahan madad ke liye hoon! 😊 Default mein
                     messages.push({ role: "assistant", content: mediaAnalysis, timestamp: new Date().toISOString() });
                     messages = messages.slice(-20);
                     await fs.writeFile(chatlogPath, JSON.stringify(messages, null, 4), 'utf-8');
+                    await chat.clearState(); // Stop typing effect
                     await message.reply(mediaAnalysis);
                     return;
                 }
-                if (mediaPath) return;
+                if (mediaPath) {
+                    await chat.clearState(); // Stop typing effect
+                    return;
+                }
             }
-
-            if (mediaPath) return;
-
+    
+            if (mediaPath) {
+                await chat.clearState(); // Stop typing effect
+                return;
+            }
+    
             if (query.toLowerCase() === "help") {
                 const helpResponse = await showHelp(username);
+                await chat.clearState(); // Stop typing effect
                 await message.reply(helpResponse);
                 return;
             }
-
+    
+            // Handle @0527 commands
             if (query.toLowerCase().startsWith('@0527')) {
                 const command = query.slice(5).trim();
-
+                let response;
+    
                 if (command.toLowerCase() === 'system info') {
-                    const response = isMobile ? 
+                    response = isMobile ? 
                         await systemControl.getSystemInfo() : 
                         `System Info:\n- CPU: ${systemControl.getSystemInfo().cpu}\n- RAM: ${systemControl.getSystemInfo().ram}\n- Battery: ${await systemControl.getSystemInfo().battery}%`;
-                    await message.reply(response);
-                    return;
                 } else if (command.toLowerCase().startsWith('speak:')) {
                     const text = command.slice(6).trim();
-                    const response = isMobile ? 
+                    response = isMobile ? 
                         await systemControl.speak(text) : 
                         `Main bol diya: "${text}"`;
                     if (!isMobile) await systemControl.speak(text);
-                    await message.reply(response);
-                    return;
                 } else if (command.toLowerCase().startsWith('volume up')) {
                     const match = command.match(/volume up (\d+)%/i);
                     if (match) {
                         const percentage = parseInt(match[1]);
                         if (percentage >= 0 && percentage <= 100) {
                             if (isMobile) {
-                                await message.reply(await systemControl.adjustVolume());
+                                response = await systemControl.adjustVolume();
                             } else {
                                 systemControl.adjustVolume(percentage);
                                 const currentVolume = systemControl.getCurrentVolume();
-                                await message.reply(`Volume ${percentage}% pe set kar diya! Abhi volume: ${currentVolume}%`);
+                                response = `Volume ${percentage}% pe set kar diya! Abhi volume: ${currentVolume}%`;
                             }
                         } else {
-                            await message.reply('Volume 0-100% ke beech mein do, dost!');
+                            response = 'Volume 0-100% ke beech mein do, dost!';
                         }
                     } else {
-                        await message.reply('Format galat hai! Jaise: "@0527 volume up 50%"');
+                        response = 'Format galat hai! Jaise: "@0527 volume up 50%"';
                     }
-                    return;
                 } else if (command.toLowerCase() === 'volume') {
-                    const response = isMobile ? 
+                    response = isMobile ? 
                         await systemControl.getCurrentVolume() : 
                         `Abhi volume: ${systemControl.getCurrentVolume()}%`;
-                    await message.reply(response);
-                    return;
                 } else if (command.toLowerCase().startsWith('thought')) {
-                    let response;
                     const thoughtQuery = command.slice(7).trim();
-
                     if (thoughtQuery === "") {
                         response = await updateThought(null, null, username, true);
                     } else if (thoughtQuery.toLowerCase().startsWith("myquery:")) {
@@ -511,37 +652,33 @@ Main ${Assistantname} hoon, aur main yahan madad ke liye hoon! 😊 Default mein
                             response = await updateThought(null, null, thoughtUsername, true);
                         }
                     }
-
-                    if (response) await message.reply(response);
-                    return;
                 } else if (command.toLowerCase().startsWith('cmd')) {
                     const cmd = command.slice(3).trim();
                     if (cmd) {
                         const output = isMobile ? 
                             await systemControl.executeCommand() : 
                             systemControl.executeCommand(cmd);
-                        await message.reply(isMobile ? output : `Command chal gaya: "${cmd}"\nOutput: ${output}`);
+                        response = isMobile ? output : `Command chal gaya: "${cmd}"\nOutput: ${output}`;
                         if (!isMobile) {
                             const ssPath = await systemControl.takeScreenshot();
                             const media = MessageMedia.fromFilePath(ssPath);
                             await client.sendMessage(message.from, media, { caption: `Confirm karo, sahi hua?` });
                         }
                     } else {
-                        await message.reply('Koi command toh do! Jaise: "@0527 cmd dir"');
+                        response = 'Koi command toh do! Jaise: "@0527 cmd dir"';
                     }
-                    return;
                 } else if (command.toLowerCase() === 'ss') {
                     if (isMobile) {
-                        await message.reply(await systemControl.takeScreenshot());
+                        response = await systemControl.takeScreenshot();
                     } else {
                         const ssPath = await systemControl.takeScreenshot();
                         const media = MessageMedia.fromFilePath(ssPath);
                         await client.sendMessage(message.from, media, { caption: `Yeh lo screenshot!` });
+                        response = '';
                     }
-                    return;
                 } else if (command.toLowerCase().startsWith('key:')) {
                     const shortcut = command.slice(4).trim();
-                    const response = isMobile ? 
+                    response = isMobile ? 
                         await systemControl.executeShortcut() : 
                         `Shortcut chal gaya: "${shortcut}"`;
                     if (!isMobile) {
@@ -550,70 +687,74 @@ Main ${Assistantname} hoon, aur main yahan madad ke liye hoon! 😊 Default mein
                         const media = MessageMedia.fromFilePath(ssPath);
                         await client.sendMessage(message.from, media, { caption: `Confirm karo, sahi hua?` });
                     }
-                    await message.reply(response);
-                    return;
                 } else if (command.toLowerCase().startsWith('sendme:')) {
                     const filePath = command.slice(7).trim();
                     if (await fs.access(filePath).then(() => true).catch(() => false)) {
                         const media = MessageMedia.fromFilePath(filePath);
                         await client.sendMessage(message.from, media, { caption: `Yeh lo file: ${filePath}` });
+                        response = '';
                     } else {
-                        await message.reply(`File nahi mili: "${filePath}"`);
+                        response = `File nahi mili: "${filePath}"`;
                     }
-                    return;
                 } else if (command.toLowerCase().startsWith('feedback')) {
                     const feedbackText = command.slice(8).trim();
                     if (feedbackText) {
-                        const response = await saveFeedback(username, feedbackText);
-                        await message.reply(response);
+                        response = await saveFeedback(username, feedbackText);
                     } else {
-                        await message.reply("Feedback mein kuchh likhna toh banta hai, dost! 😅");
+                        response = "Feedback mein kuchh likhna toh banta hai, dost! 😅";
                     }
-                    return;
                 } else if (command.toLowerCase() === 'help') {
-                    const helpResponse = await showHelp(username, true);
-                    await message.reply(helpResponse);
-                    return;
+                    response = await showHelp(username, true);
                 }
+    
+                if (response) {
+                    await chat.clearState(); // Stop typing effect
+                    await message.reply(response);
+                }
+                return;
             }
-
+    
+            // Handle volume up command
             if (query.toLowerCase().startsWith('volume up')) {
                 const match = query.match(/volume up (\d+)%/i);
                 if (match) {
                     const percentage = parseInt(match[1]);
+                    let response;
                     if (percentage >= 0 && percentage <= 100) {
                         if (isMobile) {
-                            await message.reply(await systemControl.adjustVolume());
+                            response = await systemControl.adjustVolume();
                         } else {
                             systemControl.adjustVolume(percentage);
                             const currentVolume = systemControl.getCurrentVolume();
-                            await message.reply(`Volume ${percentage}% pe set kar diya! Abhi volume: ${currentVolume}%`);
+                            response = `Volume ${percentage}% pe set kar diya! Abhi volume: ${currentVolume}%`;
                         }
                     } else {
-                        await message.reply('Volume 0-100% ke beech mein do, dost!');
+                        response = 'Volume 0-100% ke beech mein do, dost!';
                     }
+                    await chat.clearState(); // Stop typing effect
+                    await message.reply(response);
                 } else {
+                    await chat.clearState(); // Stop typing effect
                     await message.reply('Format galat hai! Jaise: "volume up 50%"');
                 }
                 return;
             }
-
+    
+            // Process tasks
             const decisions = await FirstLayerDMM(query, username);
             let response = '';
             let taskProcessed = false;
-
+    
             const processTasks = async (decisions, query, username, client) => {
                 for (const task of decisions) {
                     const match = task.match(/^(start|general|realtime|play|end|lyrics)\s+(.+)$/);
                     if (!match) {
-                        return await ChatBot(query, username, client); // fallback
+                        return await ChatBot(query, username, client);
                     }
-            
+    
                     const category = match[1];
-                    const q = match[2];
-            
-                    console.log(category);
-            
+                    const q = query;
+    
                     switch (category) {
                         case 'start':
                             return await ChatBot(q, username, client);
@@ -633,25 +774,38 @@ Main ${Assistantname} hoon, aur main yahan madad ke liye hoon! 😊 Default mein
                     }
                 }
             };
-            
+    
+            let userBlocked_list = await loadBlockedUsers();
             if (isGroup) {
-                if (mentioned == ownerNumber) {
-                    const filtered_ownerNumber = `@${ownerNumber.replace("@c.us","").replace("@g.us","")}`
-                    const filtred_query = query.replace(filtered_ownerNumber,"")
-                    response = await processTasks(decisions, filtred_query, username, client);
+                if (message.mentionedIds.includes(ownerNumber)) {
+                    const filtered_ownerNumber = `@${ownerNumber.replace("@c.us","").replace("@g.us","")}`;
+                    const filtered_query = query.replace(filtered_ownerNumber,"");
+                    response = await processTasks(decisions, filtered_query, username, client);
                     taskProcessed = true;
+                    await chat.clearState(); // Stop typing effect
                     await message.reply(response);
-                } else {
-                    console.log("Group but not mentioned");
                 }
+            } else if (query.toLowerCase() == "@ai block") {
+                const reply = await updateBlockedUser(message.from.replace('@c.us','').replace('@g.us',''), true, customSanitize(username).replace("_",""));
+                await chat.clearState(); // Stop typing effect
+                await client.sendMessage(message.from, reply);
+            } else if (query.toLowerCase() == "@ai unblock") {
+                const reply = await updateBlockedUser(message.from.replace('@c.us','').replace('@g.us',''), false, customSanitize(username).replace("_",""));
+                await chat.clearState(); // Stop typing effect
+                await client.sendMessage(message.from, reply);
+            } else if (userBlocked_list.has(message.from.replace('@c.us','').replace('@g.us',''))) {
+                await chat.clearState(); // Stop typing effect
+                console.log(username);
             } else {
                 response = await processTasks(decisions, query, username, client);
                 taskProcessed = true;
+                await chat.clearState(); // Stop typing effect
                 await message.reply(response);
             }
-
+    
         } catch (e) {
             console.error(`❌ Message Error: ${e.message}`);
+            await (await message.getChat()).clearState(); // Stop typing effect on error
             // await client.sendMessage(message.from, `Arre yaar, ye "${e.message}" error aagya hai! Main fix karta hoon! 😅`);
         }
     });
