@@ -21,28 +21,28 @@ const startupGreetings = [
     "hello", "hallo", "helo", "helloo", "heloo", "hlo", "hllo",
     "hey", "heyy", "heyyy", "heyyyy", "heya", "heyya", "heyyo",
     "yo", "yoo", "yooo", "yoy", "yoyo",
-    
+
     // Morning greetings
-    "good morning", "goodmorning", "gm", "gdm", "gud morning", 
+    "good morning", "goodmorning", "gm", "gdm", "gud morning",
     "gudmorning", "good mornin", "gud mornin", "morning", "mornin",
     "gd morning", "gd mornin", "mng", "morn", "gud mng",
-    
+
     // Afternoon greetings
-    "good afternoon", "goodafternoon", "ga", "gud afternoon", 
+    "good afternoon", "goodafternoon", "ga", "gud afternoon",
     "gudafternoon", "good aftrnoon", "gud aftrnoon", "afternoon",
     "gd afternoon", "gd aftrnoon", "aftn", "gud aftn",
-    
+
     // Evening greetings
-    "good evening", "goodevening", "ge", "gud evening", 
+    "good evening", "goodevening", "ge", "gud evening",
     "gudevening", "good evning", "gud evning", "evening", "evning",
     "gd evening", "gd evning", "evng", "gud evng",
-    
+
     // Wake-up greetings
     "wake up", "wakeup", "wake", "wakey", "waky", "wakee",
     "utho", "uth", "utth", "uthoo", "uthja", "uthjaa",
     "jagoo", "jago", "jag", "jaggo", "jagja", "jagjaa",
     "get up", "getup", "gettup", "get upp", "gup",
-    
+
     // Casual/Other
     "jarvis", ".", "sup", "wassup", "whatsup", "whatssup", "whsup",
     "hola", "holla", "heya", "hiya", "hy", "hie",
@@ -139,7 +139,7 @@ async function ensureDependencies() {
     const commonDeps = ['whatsapp-web.js', 'qrcode-terminal', '@google/generative-ai', 'sanitize-filename', 'axios'];
     const laptopDeps = ['gtts', 'nircmd', 'screenshot-desktop', 'sound-play'];
     const dependencies = isMobile ? commonDeps : [...commonDeps, ...laptopDeps];
-    
+
     const missing = dependencies.filter(dep => {
         try {
             require(dep);
@@ -152,7 +152,7 @@ async function ensureDependencies() {
 }
 
 // Mobile-specific SystemControl
-const SystemControl = isMobile ? 
+const SystemControl = isMobile ?
     class MobileSystemControl {
         constructor(client) {
             this.client = client;
@@ -169,7 +169,7 @@ const SystemControl = isMobile ?
         executeShortcut = () => this.notAvailable("Keyboard Shortcuts");
         startBatteryMonitor = () => Promise.resolve();
         stopBatteryMonitor = () => Promise.resolve();
-    } 
+    }
     : require('./system-control');
 
 (async () => {
@@ -426,7 +426,7 @@ Main ${Assistantname} hoon, aur main yahan madad ke liye hoon! 😊 Default mein
     client.on('ready', async () => {
         ownerNumber = client.info.wid._serialized;
         systemControl.ownerNumber = ownerNumber;
-    
+
         const onMessage = `Hey ${process.env.Developername}, I am ${Assistantname}, --> ON`;
         try {
             await client.sendMessage(ownerNumber, onMessage);
@@ -434,32 +434,32 @@ Main ${Assistantname} hoon, aur main yahan madad ke liye hoon! 😊 Default mein
         } catch (error) {
             console.error(`❌ Error sending ON message: ${error.message}`);
         }
-    
+
         // Set initial online presence
         await client.sendPresenceAvailable();
         // console.log('✅ Bot set to online status');
-    
+
         // Periodically update presence to stay online
         const presenceInterval = setInterval(async () => {
             try {
                 await client.sendPresenceAvailable();
-                // console.log('✅ Refreshed online status');
+                console.log('✅ Refreshed online status');
             } catch (error) {
                 console.error('❌ Error refreshing presence:', error.message);
             }
         }, 30000); // Update every 30 seconds
-    
+
         await updateThought(null, null, Assistantname);
         if (!isMobile) systemControl.startBatteryMonitor();
         await keepAlive();
-    
+
         // Clear interval on disconnect
         client.on('disconnected', () => {
             clearInterval(presenceInterval);
         });
     });
 
-    
+
 
     client.on('message', async (message) => {
         try {
@@ -468,67 +468,72 @@ Main ${Assistantname} hoon, aur main yahan madad ke liye hoon! 😊 Default mein
             const username = getUsername(contact);
             let query = message.body.trim();
             const queryLower = query.toLowerCase();
-            const isGroup = chat.isGroup;
+            const isGroup = chat.id._serialized.endsWith('@g.us');
+            // const cisGroup = chat.id._serialized.endsWith('@c.us');
+            const mentioned = message.mentionedIds?.length ? message.mentionedIds.join(', ') : 'None';
             const ownerNumber = client.info.wid._serialized;
-    
+
             if (!query && !message.hasMedia) return;
             if (isGroup && !message.mentionedIds.includes(client.info.wid._serialized)) return;
-    
-            // Start typing effect after 2 seconds
-            await new Promise(resolve => setTimeout(resolve, 2000));
-            await chat.sendSeen();
-            await new Promise(resolve => setTimeout(resolve, 1000));
 
-            // Generate random total delay (5-12 seconds for natural typing)
-            const totalDelaySeconds = 5 + Math.floor(Math.random() * 8); // Random between 5-12 seconds
-            const totalDelayMs = totalDelaySeconds * 1000;
-            console.log(`Typing Effect Delay: ${totalDelaySeconds}s`);
+            async function typingstart() {
+                // Start typing effect after 2 seconds
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                await chat.sendSeen();
+                await new Promise(resolve => setTimeout(resolve, 1000));
 
-            // Randomly choose 1 or 2 pauses (50% chance for each)
-            const numPauses = Math.random() < 0.5 ? 1 : 2;
-            // Calculate pause positions (e.g., at 40% and 80% of total delay for 2 pauses)
-            const pausePositions = numPauses === 1
-                ? [totalDelayMs * 0.5] // Single pause at midpoint
-                : [totalDelayMs * 0.4, totalDelayMs * 0.8]; // Two pauses at 40% and 80%
+                // Generate random total delay (5-12 seconds for natural typing)
+                const totalDelaySeconds = 5 + Math.floor(Math.random() * 8); // Random between 5-12 seconds
+                const totalDelayMs = totalDelaySeconds * 1000;
+                // console.log(`Typing Effect Delay: ${totalDelaySeconds}s`);
 
-            const startTime = Date.now();
-            for (let i = 0; i < pausePositions.length; i++) {
-                const position = pausePositions[i];
-                // Wait until the pause position
-                const elapsed = Date.now() - startTime;
-                if (elapsed < position) {
+                // Randomly choose 1 or 2 pauses (50% chance for each)
+                const numPauses = Math.random() < 0.5 ? 1 : 2;
+                // Calculate pause positions (e.g., at 40% and 80% of total delay for 2 pauses)
+                const pausePositions = numPauses === 1
+                    ? [totalDelayMs * 0.5] // Single pause at midpoint
+                    : [totalDelayMs * 0.4, totalDelayMs * 0.8]; // Two pauses at 40% and 80%
+
+                const startTime = Date.now();
+                for (let i = 0; i < pausePositions.length; i++) {
+                    const position = pausePositions[i];
+                    // Wait until the pause position
+                    const elapsed = Date.now() - startTime;
+                    if (elapsed < position) {
+                        await chat.sendStateTyping();
+                        await new Promise(resolve => setTimeout(resolve, position - elapsed));
+                    }
+
+                    // Pause typing for exactly 1 second
+                    await chat.clearState();
+                    await new Promise(resolve => setTimeout(resolve, 1000)); // 1-second pause
+
+                    // Resume typing for 0.5-1 second
                     await chat.sendStateTyping();
-                    await new Promise(resolve => setTimeout(resolve, position - elapsed));
+                    const typingDuration = 500 + Math.random() * 500; // 0.5-1s
+                    await new Promise(resolve => setTimeout(resolve, typingDuration));
                 }
 
-                // Pause typing for exactly 1 second
+                // Wait until total delay is complete
+                const elapsed = Date.now() - startTime;
+                if (elapsed < totalDelayMs) {
+                    await chat.sendStateTyping();
+                    await new Promise(resolve => setTimeout(resolve, totalDelayMs - elapsed));
+                }
+                // Clear typing state before processing
                 await chat.clearState();
-                await new Promise(resolve => setTimeout(resolve, 1000)); // 1-second pause
-
-                // Resume typing for 0.5-1 second
-                await chat.sendStateTyping();
-                const typingDuration = 500 + Math.random() * 500; // 0.5-1s
-                await new Promise(resolve => setTimeout(resolve, typingDuration));
             }
 
-            // Wait until total delay is complete
-            const elapsed = Date.now() - startTime;
-            if (elapsed < totalDelayMs) {
-                await chat.sendStateTyping();
-                await new Promise(resolve => setTimeout(resolve, totalDelayMs - elapsed));
-            }
-            // Clear typing state before processing
-            await chat.clearState();
 
             const mediaPath = await saveMedia(username, message);
             const sanitizedUsername = customSanitize(username);
             const chatlogPath = path.join(__dirname, `Data/${sanitizedUsername}/${sanitizedUsername}-ChatLog.json`);
             await ensureDir(chatlogPath);
             let messages = await fs.readFile(chatlogPath, 'utf-8').then(JSON.parse).catch(() => []);
-    
+
             const userSetup = await getUserSetup(username);
             let isStarted = userSetup.state === "start";
-    
+
             // Handle startup logic
             if (!isStarted) {
                 const words = queryLower.split(/\s+/);
@@ -536,9 +541,10 @@ Main ${Assistantname} hoon, aur main yahan madad ke liye hoon! 😊 Default mein
                 const hasGreeting = startupGreetings.includes(firstWord);
                 const isSingleGreeting = words.length === 1 && hasGreeting;
                 const hasGreetingWithText = hasGreeting && words.length > 1;
-    
+
                 if (isSingleGreeting || hasGreetingWithText) {
                     await updateUserSetup(username, "start");
+                    await typingstart()
                     const reply = await ChatBot(query, username, client);
                     await chat.clearState(); // Stop typing effect
                     await message.reply(reply);
@@ -547,12 +553,12 @@ Main ${Assistantname} hoon, aur main yahan madad ke liye hoon! 😊 Default mein
                 await chat.clearState(); // Stop typing effect
                 return;
             }
-    
+
             // Handle image commands
             if (mediaPath && message.type === 'image') {
                 const isImageCommand = ['/image', '\\image', '/analyze', '\\analyze'].includes(query.split(' ')[0].toLowerCase());
                 if (isImageCommand) {
-                    let imageQuery = query.split(' ').slice(1).join(' ').trim() || 
+                    let imageQuery = query.split(' ').slice(1).join(' ').trim() ||
                         (query.toLowerCase().startsWith('/analyze') || query.toLowerCase().startsWith('\\analyze')
                             ? "Is image ko Hinglish mein detail mein describe kar, jaise dost ko samjha raha ho!"
                             : "Is image ko Hinglish mein describe kar aur Instagram ke liye caption aur viral tags suggest kar!");
@@ -560,6 +566,7 @@ Main ${Assistantname} hoon, aur main yahan madad ke liye hoon! 😊 Default mein
                     messages.push({ role: "user", content: `${query}`, timestamp: new Date().toISOString() });
                     messages.push({ role: "assistant", content: mediaAnalysis, timestamp: new Date().toISOString() });
                     messages = messages.slice(-20);
+                    await typingstart()
                     await fs.writeFile(chatlogPath, JSON.stringify(messages, null, 4), 'utf-8');
                     await chat.clearState(); // Stop typing effect
                     await message.reply(mediaAnalysis);
@@ -570,32 +577,33 @@ Main ${Assistantname} hoon, aur main yahan madad ke liye hoon! 😊 Default mein
                     return;
                 }
             }
-    
+
             if (mediaPath) {
                 await chat.clearState(); // Stop typing effect
                 return;
             }
-    
+
             if (query.toLowerCase() === "help") {
+                await typingstart()
                 const helpResponse = await showHelp(username);
                 await chat.clearState(); // Stop typing effect
                 await message.reply(helpResponse);
                 return;
             }
-    
+
             // Handle @0527 commands
             if (query.toLowerCase().startsWith('@0527')) {
                 const command = query.slice(5).trim();
                 let response;
-    
+
                 if (command.toLowerCase() === 'system info') {
-                    response = isMobile ? 
-                        await systemControl.getSystemInfo() : 
+                    response = isMobile ?
+                        await systemControl.getSystemInfo() :
                         `System Info:\n- CPU: ${systemControl.getSystemInfo().cpu}\n- RAM: ${systemControl.getSystemInfo().ram}\n- Battery: ${await systemControl.getSystemInfo().battery}%`;
                 } else if (command.toLowerCase().startsWith('speak:')) {
                     const text = command.slice(6).trim();
-                    response = isMobile ? 
-                        await systemControl.speak(text) : 
+                    response = isMobile ?
+                        await systemControl.speak(text) :
                         `Main bol diya: "${text}"`;
                     if (!isMobile) await systemControl.speak(text);
                 } else if (command.toLowerCase().startsWith('volume up')) {
@@ -617,8 +625,8 @@ Main ${Assistantname} hoon, aur main yahan madad ke liye hoon! 😊 Default mein
                         response = 'Format galat hai! Jaise: "@0527 volume up 50%"';
                     }
                 } else if (command.toLowerCase() === 'volume') {
-                    response = isMobile ? 
-                        await systemControl.getCurrentVolume() : 
+                    response = isMobile ?
+                        await systemControl.getCurrentVolume() :
                         `Abhi volume: ${systemControl.getCurrentVolume()}%`;
                 } else if (command.toLowerCase().startsWith('thought')) {
                     const thoughtQuery = command.slice(7).trim();
@@ -655,8 +663,8 @@ Main ${Assistantname} hoon, aur main yahan madad ke liye hoon! 😊 Default mein
                 } else if (command.toLowerCase().startsWith('cmd')) {
                     const cmd = command.slice(3).trim();
                     if (cmd) {
-                        const output = isMobile ? 
-                            await systemControl.executeCommand() : 
+                        const output = isMobile ?
+                            await systemControl.executeCommand() :
                             systemControl.executeCommand(cmd);
                         response = isMobile ? output : `Command chal gaya: "${cmd}"\nOutput: ${output}`;
                         if (!isMobile) {
@@ -678,8 +686,8 @@ Main ${Assistantname} hoon, aur main yahan madad ke liye hoon! 😊 Default mein
                     }
                 } else if (command.toLowerCase().startsWith('key:')) {
                     const shortcut = command.slice(4).trim();
-                    response = isMobile ? 
-                        await systemControl.executeShortcut() : 
+                    response = isMobile ?
+                        await systemControl.executeShortcut() :
                         `Shortcut chal gaya: "${shortcut}"`;
                     if (!isMobile) {
                         systemControl.executeShortcut(shortcut);
@@ -706,14 +714,15 @@ Main ${Assistantname} hoon, aur main yahan madad ke liye hoon! 😊 Default mein
                 } else if (command.toLowerCase() === 'help') {
                     response = await showHelp(username, true);
                 }
-    
+
                 if (response) {
+                    await typingstart()
                     await chat.clearState(); // Stop typing effect
                     await message.reply(response);
                 }
                 return;
             }
-    
+
             // Handle volume up command
             if (query.toLowerCase().startsWith('volume up')) {
                 const match = query.match(/volume up (\d+)%/i);
@@ -731,30 +740,32 @@ Main ${Assistantname} hoon, aur main yahan madad ke liye hoon! 😊 Default mein
                     } else {
                         response = 'Volume 0-100% ke beech mein do, dost!';
                     }
+                    await typingstart()
                     await chat.clearState(); // Stop typing effect
                     await message.reply(response);
                 } else {
+                    await typingstart()
                     await chat.clearState(); // Stop typing effect
                     await message.reply('Format galat hai! Jaise: "volume up 50%"');
                 }
                 return;
             }
-    
+
             // Process tasks
             const decisions = await FirstLayerDMM(query, username);
             let response = '';
             let taskProcessed = false;
-    
+
             const processTasks = async (decisions, query, username, client) => {
                 for (const task of decisions) {
                     const match = task.match(/^(start|general|realtime|play|end|lyrics)\s+(.+)$/);
                     if (!match) {
                         return await ChatBot(query, username, client);
                     }
-    
+
                     const category = match[1];
                     const q = query;
-    
+
                     switch (category) {
                         case 'start':
                             return await ChatBot(q, username, client);
@@ -770,42 +781,55 @@ Main ${Assistantname} hoon, aur main yahan madad ke liye hoon! 😊 Default mein
                         case 'lyrics':
                             return await fetchLyrics(q, username, client);
                         default:
-                            return await ChatBot(query, username, client);
+                            return await ChatBot(q, username, client);
                     }
                 }
             };
-    
+
             let userBlocked_list = await loadBlockedUsers();
-            if (isGroup) {
-                if (message.mentionedIds.includes(ownerNumber)) {
-                    const filtered_ownerNumber = `@${ownerNumber.replace("@c.us","").replace("@g.us","")}`;
-                    const filtered_query = query.replace(filtered_ownerNumber,"");
-                    response = await processTasks(decisions, filtered_query, username, client);
+            const _time = Math.floor(Date.now() / 1000);
+            // console.log(_time)
+            // console.log(message.timestamp)
+            const timeDifference = _time - message.timestamp;
+            if (timeDifference <= 120) {
+                if (isGroup) {
+                    if (mentioned == ownerNumber) {
+                        const filtered_ownerNumber = `@${ownerNumber.replace("@c.us", "").replace("@g.us", "")}`;
+                        const filtered_query = query.replace(filtered_ownerNumber, "");
+                        response = await processTasks(decisions, filtered_query, username, client);
+                        await typingstart()
+                        taskProcessed = true;
+                        await chat.clearState(); // Stop typing effect
+                        await message.reply(response);
+                    } else {
+                        console.log("Not Group Mentioned")
+                    }
+                } else if (query.toLowerCase() == "@ai block") {
+                    const reply = await updateBlockedUser(message.from.replace('@c.us', '').replace('@g.us', ''), true, customSanitize(username).replace("_", ""));
+                    await typingstart()
+                    await chat.clearState(); // Stop typing effect
+                    await client.sendMessage(message.from, reply);
+
+                } else if (query.toLowerCase() == "@ai unblock") {
+                    const reply = await updateBlockedUser(message.from.replace('@c.us', '').replace('@g.us', ''), false, customSanitize(username).replace("_", ""));
+                    await typingstart()
+                    await chat.clearState(); // Stop typing effect
+                    await client.sendMessage(message.from, reply);
+
+                } else if (userBlocked_list.has(message.from.replace('@c.us', '').replace('@g.us', ''))) {
+                    console.log(username);
+                } else {
+                    response = await processTasks(decisions, query, username, client);
+                    await typingstart()
                     taskProcessed = true;
                     await chat.clearState(); // Stop typing effect
                     await message.reply(response);
                 }
-            } else if (query.toLowerCase() == "@ai block") {
-                const reply = await updateBlockedUser(message.from.replace('@c.us','').replace('@g.us',''), true, customSanitize(username).replace("_",""));
-                await chat.clearState(); // Stop typing effect
-                await client.sendMessage(message.from, reply);
-            } else if (query.toLowerCase() == "@ai unblock") {
-                const reply = await updateBlockedUser(message.from.replace('@c.us','').replace('@g.us',''), false, customSanitize(username).replace("_",""));
-                await chat.clearState(); // Stop typing effect
-                await client.sendMessage(message.from, reply);
-            } else if (userBlocked_list.has(message.from.replace('@c.us','').replace('@g.us',''))) {
-                await chat.clearState(); // Stop typing effect
-                console.log(username);
             } else {
-                response = await processTasks(decisions, query, username, client);
-                taskProcessed = true;
-                await chat.clearState(); // Stop typing effect
-                await message.reply(response);
+                console.log("Old Messages Not Replay")
             }
-    
         } catch (e) {
             console.error(`❌ Message Error: ${e.message}`);
-            await (await message.getChat()).clearState(); // Stop typing effect on error
             // await client.sendMessage(message.from, `Arre yaar, ye "${e.message}" error aagya hai! Main fix karta hoon! 😅`);
         }
     });
